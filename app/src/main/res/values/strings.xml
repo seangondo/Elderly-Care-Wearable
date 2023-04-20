@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Elderly Care Wearable</string>
+    <!--
+    This string is used for square devices and overridden by hello_world in
+    values-round/strings.xml for round devices.
+    -->
+    <string name="hello_world">Hello Square World!</string>
+    <string name="ipServer">tcp://private-server.uk.to:1883</string>
+    <string name="ipWeb">https://private-server.uk.to</string>
+    <string name="mqttUser">user</string>
+    <string name="mqttPass">user</string>
+</resources>

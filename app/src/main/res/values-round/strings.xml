@@ -1,0 +1,7 @@
+<resources>
+    <string name="hello_world">Hello Round World!</string>
+    <string name="ipServer">tcp://private-server.uk.to:1883</string>
+    <string name="ipWeb">https://private-server.uk.to</string>
+    <string name="mqttUser">user</string>
+    <string name="mqttPass">user</string>
+</resources>
