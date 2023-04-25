@@ -86,7 +86,7 @@ public class MainActivity extends Activity {
                 case R.id.btnSOS:
                     sosDialog sosDialog = new sosDialog(MainActivity.this);
                     try {
-                        client.publish(myDb.getWatchIdInfo() + "/wearable/sos/message", (myDb.getWatchIdInfo()+" need assistance!").getBytes(), 0, false);
+                        client.publish(myDb.getWatchIdInfo() + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
                         sosDialog.startDialog();
                     } catch (MqttException e) {
                         e.printStackTrace();
@@ -131,7 +131,6 @@ public class MainActivity extends Activity {
 
         if (!hasPermission(this, PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_ALL);
-            Log.e("Permission", "TES");
         } else {
             if(myDb.getWatchIdInfo() != null) {
                 startApps();
@@ -323,7 +322,6 @@ public class MainActivity extends Activity {
                 }
             }
             if (permissionGranted) {
-                Log.e("Permission", "MASOK");
                 if(myDb.getWatchIdInfo() != null) {
                     startApps();
                 } else {
@@ -342,5 +340,11 @@ public class MainActivity extends Activity {
             }
         }
         return true;
+    }
+
+    public void onDetails(View view) {
+        Intent intent = new Intent(this, WatchDetails.class);
+        intent.putExtra("watch_id", myDb.getWatchIdInfo());
+        startActivity(intent);
     }
 }
