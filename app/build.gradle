@@ -42,9 +42,7 @@ dependencies {
 
     // Local Broadcast
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager'
-
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-
 
     // retrofit, gson
     implementation 'com.google.code.gson:gson:2.8.6'

@@ -9,4 +9,5 @@
     <string name="ipWeb">https://private-server.uk.to</string>
     <string name="mqttUser">user</string>
     <string name="mqttPass">user</string>
+    <string name="title_activity_messages">messages_activity</string>
 </resources>

@@ -17,14 +17,18 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.GestureDetectorCompat;
 
 import com.google.gson.Gson;
 import com.tugasakhir.elderlycarewearable.databinding.ActivityMainBinding;
@@ -48,7 +52,10 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends Activity {
+@RequiresApi(api = 33)
+public class MainActivity extends Activity implements
+        GestureDetector.OnGestureListener,
+        GestureDetector.OnDoubleTapListener{
 
     // INITIALIZE MQTT CONNECTION AND SERVICES
     public static MqttAndroidClient client;
@@ -76,7 +83,8 @@ public class MainActivity extends Activity {
 //            android.Manifest.permission.BODY_SENSORS,
             android.Manifest.permission.BODY_SENSORS,
             android.Manifest.permission.INTERNET,
-            android.Manifest.permission.FOREGROUND_SERVICE
+            android.Manifest.permission.FOREGROUND_SERVICE,
+            android.Manifest.permission.POST_NOTIFICATIONS,
     };
 
     View.OnClickListener myClickListener = new View.OnClickListener() {
@@ -93,16 +101,18 @@ public class MainActivity extends Activity {
                     }
 
                     break;
-                case R.id.btnMsgs:
-
-                    break;
             }
         }
     };
 
+
+    private static final String DEBUG_TAG = "Gestures";
+    private GestureDetectorCompat mDetector;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mDetector = new GestureDetectorCompat(this,this);
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -154,9 +164,7 @@ public class MainActivity extends Activity {
     void startApps() {
         Log.e("Wearable Elder", "Apps Starting!");
         sos = (Button) findViewById(R.id.btnSOS);
-        msg = (Button) findViewById(R.id.btnMsgs);
         sos.setOnClickListener(myClickListener);
-        msg.setOnClickListener(myClickListener);
 
         w_id.setText(myDb.getWatchIdInfo());
 
@@ -250,7 +258,7 @@ public class MainActivity extends Activity {
 
     private void subscribeToTopic(String topic) {
         try {
-            client.subscribe(topic, 0, null, new IMqttActionListener() {
+            client.subscribe(topic + "/#", 0, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.w("Mqtt","Subscribed : " + topic);
@@ -346,5 +354,80 @@ public class MainActivity extends Activity {
         Intent intent = new Intent(this, WatchDetails.class);
         intent.putExtra("watch_id", myDb.getWatchIdInfo());
         startActivity(intent);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event){
+        if (this.mDetector.onTouchEvent(event)) {
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean onDown(MotionEvent event) {
+//        Log.d(DEBUG_TAG,"onDown: " + event.toString());
+        return true;
+    }
+
+    @Override
+    public boolean onFling(MotionEvent event1, MotionEvent event2,
+                           float velocityX, float velocityY) {
+        Log.e(DEBUG_TAG, "onFling: " + event1.toString() + event2.toString());
+        Log.e(DEBUG_TAG, "x: " + String.valueOf(velocityX) + "; y: " + String.valueOf(velocityY));
+        if(velocityX < -500) {
+            Intent intent = new Intent(this, messages_activity.class);
+            intent.putExtra("start", 0);
+            startActivity(intent);
+        }
+        return true;
+    }
+
+    @Override
+    public void onLongPress(MotionEvent event) {
+//        Log.d(DEBUG_TAG, "onLongPress: " + event.toString());
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX,
+                            float distanceY) {
+//        Log.d(DEBUG_TAG, "onScroll: " + event1.toString() + event2.toString());
+        return true;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent event) {
+//        Log.d(DEBUG_TAG, "onShowPress: " + event.toString());
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent event) {
+//        Log.d(DEBUG_TAG, "onSingleTapUp: " + event.toString());
+        return true;
+    }
+
+    @Override
+    public boolean onDoubleTap(MotionEvent event) {
+//        Log.e(DEBUG_TAG, "onDoubleTap: " + event.toString());
+        return true;
+    }
+
+    @Override
+    public boolean onDoubleTapEvent(MotionEvent event) {
+        sosDialog sosDialog = new sosDialog(MainActivity.this);
+        try {
+            client.publish(myDb.getWatchIdInfo() + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
+            sosDialog.startDialog();
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+//        Log.e(DEBUG_TAG, "onDoubleTapEvent: " + event.toString());
+        return true;
+    }
+
+    @Override
+    public boolean onSingleTapConfirmed(MotionEvent event) {
+//        Log.e(DEBUG_TAG, "onSingleTapConfirmed: " + event.toString());
+        return true;
     }
 }
