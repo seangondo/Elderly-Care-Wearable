@@ -25,6 +25,18 @@ public class DBHandler extends SQLiteOpenHelper {
     static String MSG_time = "time";
     static String MSG_messages = "messages";
 
+
+    static String CAL_TABLE = "tb_calories";
+    static String CAL_id = "id";
+    static String CAL_date = "date";
+    static String CAL_Value = "value";
+
+
+    static String STEPS_TABLE = "tb_steps";
+    static String STEPS_id = "id";
+    static String STEPS_date = "date";
+    static String STEPS_Value = "value";
+
     public DBHandler (Context c) {
         super(c, DB_name, null, DB_ver);
     }
@@ -44,12 +56,27 @@ public class DBHandler extends SQLiteOpenHelper {
         db.execSQL(tbMsg);
         Log.e("Database", tbMsg);
 
+
+        String tbCal = "CREATE TABLE " + CAL_TABLE + " ("
+                + CAL_date + " VARCHAR(50), "
+                + CAL_Value + " VARCHAR(50));";
+        db.execSQL(tbCal);
+        Log.e("Database", tbCal);
+
+
+        String tbSteps = "CREATE TABLE " + STEPS_TABLE + " ("
+                + STEPS_date + " VARCHAR(50), "
+                + STEPS_Value + " VARCHAR(50));";
+        db.execSQL(tbSteps);
+        Log.e("Database", tbSteps);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int i, int i1) {
         db.execSQL("DROP TABLE IF EXISTS "+WATCH_TABLE);
         db.execSQL("DROP TABLE IF EXISTS "+MSG_TABLE);
+        db.execSQL("DROP TABLE IF EXISTS "+CAL_TABLE);
+        db.execSQL("DROP TABLE IF EXISTS "+STEPS_TABLE);
         onCreate(db);
     }
 
@@ -74,7 +101,7 @@ public class DBHandler extends SQLiteOpenHelper {
         return watchId;
     }
 
-    //WATCH MESSAGES
+    // WATCH MESSAGES
     public void insertMsgs(JSONObject messages) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues cv = new ContentValues();
@@ -121,5 +148,88 @@ public class DBHandler extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(MSG_TABLE, MSG_id + " = " + id, null);
 
+    }
+
+    // --------------------------------------------------- < WATCH STEPS > --------------------------------------------------- //
+    public void insertSteps(String value, String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(STEPS_date, date);
+        cv.put(STEPS_Value, value);
+        db.insert(STEPS_TABLE, null, cv);
+    }
+
+    public void updateSteps(String value, String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(STEPS_Value, value);
+        db.update(STEPS_TABLE, cv, STEPS_date + " = '" + date + "'", null);
+    }
+
+    public int getCountStep(String date) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT * FROM " + STEPS_TABLE + " WHERE date='" + date + "'", null);
+
+        return c.getCount();
+    }
+
+    public String getSteps(String date) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String steps = "0";
+        Cursor c = db.rawQuery("SELECT * FROM " + STEPS_TABLE + " WHERE date='" + date + "'", null);
+
+        if(c.moveToFirst()) {
+            do {
+                steps = c.getString(1);
+            } while (c.moveToNext());
+        }
+        return steps;
+    }
+
+    public void deleteSteps(String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(STEPS_TABLE, STEPS_date + " = " + date, null);
+    }
+
+
+    // --------------------------------------------------- < WATCH CALORIES > --------------------------------------------------- //
+    public void insertCal(String value, String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(CAL_date, date);
+        cv.put(CAL_Value, value);
+        db.insert(CAL_TABLE, null, cv);
+    }
+
+    public void updateCal(String value, String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(CAL_Value, value);
+        db.update(CAL_TABLE, cv, CAL_date + " = '" + date + "'", null);
+
+    }
+
+    public int getCountCal(String date) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
+        return c.getCount();
+    }
+
+    public String getCal(String date) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String steps = "0";
+        Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
+
+        if(c.moveToFirst()) {
+            do {
+                steps = c.getString(1);
+            } while (c.moveToNext());
+        }
+        return steps;
+    }
+
+    public void deleteCal(String date) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(CAL_TABLE, CAL_date + " = " + date, null);
     }
 }

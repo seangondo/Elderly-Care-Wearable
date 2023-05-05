@@ -5,6 +5,7 @@ import retrofit2.http.GET;
 import retrofit2.http.Path;
 
 public interface RetrofitAPI {
-    @GET("/wearable/get_id/{id}")
-    Call<Object> getWatchId(@Path("id") String watch_id);
+    @GET("/wearable/get_id/{id}/{sensor}")
+    Call<Object> getWatchId(@Path("id") String watch_id,
+                            @Path("sensor") String sensor);
 }

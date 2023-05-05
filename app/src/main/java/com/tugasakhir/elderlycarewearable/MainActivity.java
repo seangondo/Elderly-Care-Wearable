@@ -16,21 +16,41 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GestureDetectorCompat;
+import androidx.health.services.client.HealthServices;
+import androidx.health.services.client.HealthServicesClient;
+import androidx.health.services.client.PassiveListenerCallback;
+import androidx.health.services.client.PassiveMonitoringClient;
+import androidx.health.services.client.data.CumulativeDataPoint;
+import androidx.health.services.client.data.DataPointContainer;
+import androidx.health.services.client.data.DataType;
+import androidx.health.services.client.data.HealthEvent;
+import androidx.health.services.client.data.IntervalDataPoint;
+import androidx.health.services.client.data.PassiveGoal;
+import androidx.health.services.client.data.PassiveListenerConfig;
+import androidx.health.services.client.data.PassiveMonitoringCapabilities;
+import androidx.health.services.client.data.SampleDataPoint;
+import androidx.health.services.client.data.UserActivityInfo;
 
 import com.google.gson.Gson;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.tugasakhir.elderlycarewearable.databinding.ActivityMainBinding;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -43,6 +63,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
 import java.util.Random;
 
 import okhttp3.RequestBody;
@@ -63,11 +88,20 @@ public class MainActivity extends Activity implements
 
     String clientID, mqttUser, mqttPass;
 
-    public TextView w_id, databpm;
+    private String sensor = "heart rate";
+
+    private LinearLayout hrLayout, stepsLayout, calLayout;
+
+    public TextView w_id, databpm, dataSteps, dataCal;
     private ActivityMainBinding binding;
     private BroadcastReceiver mHeartRateReceiver;
     public static int hrTextData = 0;
     private Button sos, msg;
+
+    //Updater
+    Handler handler = new Handler();
+    Runnable runnable;
+    int delay = 1000;
 
     //DB Local
     DBHandler myDb = new DBHandler(this);
@@ -80,11 +114,12 @@ public class MainActivity extends Activity implements
 
     int PERMISSION_ALL = 1;
     String[] PERMISSIONS = {
-//            android.Manifest.permission.BODY_SENSORS,
             android.Manifest.permission.BODY_SENSORS,
             android.Manifest.permission.INTERNET,
             android.Manifest.permission.FOREGROUND_SERVICE,
-            android.Manifest.permission.POST_NOTIFICATIONS,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACTIVITY_RECOGNITION
     };
 
     View.OnClickListener myClickListener = new View.OnClickListener() {
@@ -112,6 +147,7 @@ public class MainActivity extends Activity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         mDetector = new GestureDetectorCompat(this,this);
 
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -126,48 +162,180 @@ public class MainActivity extends Activity implements
         mqttUser = getString(R.string.mqttUser);
         mqttPass = getString(R.string.mqttPass);
 
+        hrLayout = (LinearLayout) findViewById(R.id.linearHr);
+        stepsLayout = (LinearLayout) findViewById(R.id.linearSteps);
+        calLayout = (LinearLayout) findViewById(R.id.linearCal);
+
+        dataSteps = (TextView) findViewById(R.id.stepsDataTv);
+        dataCal = (TextView) findViewById(R.id.caloriesDataTv);
         w_id = (TextView) findViewById(R.id.watchID);
         databpm = (TextView) findViewById(R.id.hrDataTV);
-
-//        if (ContextCompat.checkSelfPermission(this, BODY_SENSORS) != PackageManager.PERMISSION_GRANTED) {
-//            Log.e("Body Sensor", "Permission not granted!");
-//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BODY_SENSORS}, 1);
-//        }
-//
-//        if (ContextCompat.checkSelfPermission(this, INTERNET) != PackageManager.PERMISSION_GRANTED) {
-//            Log.e("Body Sensor", "Permission not granted!");
-//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, 1);
-//        }
 
         if (!hasPermission(this, PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_ALL);
         } else {
-            if(myDb.getWatchIdInfo() != null) {
-                startApps();
-            } else {
-                getWatchID();
-            }
+            checkPermission();
         }
-
-//        if(ContextCompat.checkSelfPermission(this, BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
-//                && ContextCompat.checkSelfPermission(this, INTERNET) == PackageManager.PERMISSION_GRANTED) {
-//
-//            if(myDb.getWatchIdInfo() != null) {
-//                startApps();
-//            } else {
-//                getWatchID();
-//            }
-//        }
-
     }
 
+    void checkPermission() {
+
+        // Health Services
+        HealthServicesClient healthClient = HealthServices.getClient(this);
+        PassiveMonitoringClient passiveClient = healthClient.getPassiveMonitoringClient();
+        ListenableFuture<PassiveMonitoringCapabilities> capabilitiesFuture = passiveClient.getCapabilitiesAsync();
+        Futures.addCallback(capabilitiesFuture, new FutureCallback<PassiveMonitoringCapabilities>() {
+            @Override
+            public void onSuccess(PassiveMonitoringCapabilities result) {
+                boolean supportsSteps = result.getSupportedDataTypesPassiveMonitoring().contains(DataType.STEPS_DAILY);
+                boolean SupportCalories = result.getSupportedDataTypesPassiveMonitoring().contains(DataType.CALORIES_DAILY);
+
+                if(!supportsSteps) {
+                    stepsLayout.setVisibility(View.GONE);
+                    Log.e("Health Service", "Steps is not supported!");
+                } else {
+                    Log.e("Health Service", "Steps is supported!");
+                    sensor += ",steps";
+                }
+                if(!SupportCalories) {
+                    calLayout.setVisibility(View.GONE);
+                    Log.e("Health Service", "Calories is not supported!");
+                } else {
+                    Log.e("Health Service", "Calories is supported!");
+                    sensor += ",calories";
+                }
+                Log.e("Sensor Supported", sensor);
+
+                if(myDb.getWatchIdInfo() == null) {
+                    getWatchID();
+                } else {
+                    startApps();
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                // display an error
+                Log.e("Health Service", String.valueOf(t));
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    @SuppressLint("SetTextI18n")
     void startApps() {
+
+        // START PROGRAM HERE
         Log.e("Wearable Elder", "Apps Starting!");
         sos = (Button) findViewById(R.id.btnSOS);
         sos.setOnClickListener(myClickListener);
 
         w_id.setText(myDb.getWatchIdInfo());
+        if(myDb.getCountStep(getDateNow()) > 0) {
+            dataSteps.setText(myDb.getSteps(getDateNow()) + " Steps");
+        } else {
+            dataSteps.setText("0 Steps");
+        }
+        if(myDb.getCountCal(getDateNow()) > 0) {
+            dataCal.setText(myDb.getCal(getDateNow()) + " Cals");
+        } else {
+            dataCal.setText("0 Cals");
+        }
+//        dataSteps.setText("0 Steps");
+//        dataCal.setText("0 Cals");
 
+        HealthServicesClient healthClient = HealthServices.getClient(this);
+        PassiveMonitoringClient passiveClient = healthClient.getPassiveMonitoringClient();
+
+        PassiveListenerConfig passiveListenerConfig = PassiveListenerConfig.builder()
+                .setDataTypes(Collections.singleton(DataType.STEPS_DAILY))
+                .setDataTypes(Collections.singleton(DataType.CALORIES_DAILY))
+                .build();
+
+        PassiveListenerCallback passiveListenerCallback = new PassiveListenerCallback() {
+            @Override
+            public void onRegistered() {
+                Log.e("PassiveListenerCallback", "Regis Success");
+                startServices();
+
+            }
+
+            @Override
+            public void onRegistrationFailed(@NonNull Throwable throwable) {
+                Log.e("PassiveListenerCallback", String.valueOf(throwable));
+            }
+
+            @Override
+            public void onNewDataPointsReceived(@NonNull DataPointContainer dataPointContainer) {
+                Log.e("PassiveListenerCallback", "Receive Data");
+                String date = getDateNow();
+                List<IntervalDataPoint<Long>> stepsDaily = dataPointContainer.getData(DataType.STEPS_DAILY);
+                List<IntervalDataPoint<Double>> caloriesDaily = dataPointContainer.getData(DataType.CALORIES_DAILY);
+
+                if(stepsDaily.size() > 0) {
+                    String stepValue = String.valueOf(stepsDaily.get(0).getValue());
+                    if(myDb.getCountStep(date) > 0) {
+                        Log.e("Steps", "Steps Update");
+                        myDb.updateSteps(stepValue, date);
+                    } else {
+                        Log.e("Steps", "Steps Insert");
+                        myDb.insertSteps(stepValue, date);
+                    }
+
+                    try {
+                        client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/steps", stepValue.getBytes(), 0, false);
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
+                    Log.e("Step_daily : ", String.valueOf(stepsDaily.get(0).getValue()));
+                }
+
+                if(caloriesDaily.size() > 0) {
+                    String calValue = String.valueOf(Math.round(caloriesDaily.get(0).getValue()));
+                    if(myDb.getCountCal(date) > 0) {
+                        Log.e("Cal", "Cal Update");
+                        myDb.updateCal(calValue, date);
+                    } else {
+                        Log.e("Cal", "Cal Insert");
+                        myDb.insertCal(calValue, date);
+                    }
+
+                    try {
+                        client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/calories", calValue.getBytes(), 0, false);
+                    } catch (MqttException e) {
+                        e.printStackTrace();
+                    }
+                    Log.e("Calories_daily : ", String.valueOf(caloriesDaily.get(0).getValue()));
+                }
+            }
+
+            @Override
+            public void onUserActivityInfoReceived(@NonNull UserActivityInfo userActivityInfo) {
+                Log.e("PassiveListenerCallback", String.valueOf(userActivityInfo));
+
+            }
+
+            @Override
+            public void onGoalCompleted(@NonNull PassiveGoal passiveGoal) {
+                Log.e("PassiveListenerCallback", String.valueOf(passiveGoal));
+
+            }
+
+            @Override
+            public void onHealthEventReceived(@NonNull HealthEvent healthEvent) {
+                Log.e("PassiveListenerCallback", String.valueOf(healthEvent));
+
+            }
+
+            @Override
+            public void onPermissionLost() {
+                Log.e("PassiveListenerCallback", "Permission has lost!");
+
+            }
+        };
+        passiveClient.setPassiveListenerCallback(passiveListenerConfig, passiveListenerCallback);
+    }
+
+    private void startServices() {
         startMqtt();
         hrService = new HeartRateService();
         serviceIntent = new Intent(this, hrService.getClass());
@@ -285,13 +453,15 @@ public class MainActivity extends Activity implements
         int min = 40001;
         int max = 49999;
         int randId = new Random().nextInt((max-min)+1) + min;
-        Call<Object> getWatchId = retrofitAPI.getWatchId(String.valueOf(Math.round(randId)));
+        Log.e("Sensor Supported", sensor);
+        Call<Object> getWatchId = retrofitAPI.getWatchId(String.valueOf(Math.round(randId)), sensor);
         getWatchId.enqueue(new Callback<Object>() {
             @Override
             public void onResponse(Call<Object> call, Response<Object> response) {
                 Log.e("Wearable Retrofit", "Success");
                 String res = new Gson().toJson(response.body());
                 try {
+                    Log.e("response", res);
                     JSONObject obj = new JSONObject(res);
                     if(obj.getInt("available") > 0) {
                         getWatchID();
@@ -320,21 +490,25 @@ public class MainActivity extends Activity implements
             for (int i = 0; i < permissions.length; ++i) {
                 if (grantResults[i] == PERMISSION_DENIED) {
                     //User denied permissions twice - permanent denial:
-                    if (!shouldShowRequestPermissionRationale(permissions[i]))
+                    if (!shouldShowRequestPermissionRationale(permissions[i])) {
+                        Log.e("permissions", permissions[i]);
                         Toast.makeText(getApplicationContext(), "Grant permission from settings!", Toast.LENGTH_LONG).show();
                         //User denied permissions once:
-                    else
-                        Toast.makeText(getApplicationContext(), "Permission need for measure heart rate!", Toast.LENGTH_LONG).show();
+                    }
+                    else {
+                        Toast.makeText(getApplicationContext(), "Permission need for measure!", Toast.LENGTH_LONG).show();
+                    }
                     permissionGranted = false;
                     break;
                 }
             }
             if (permissionGranted) {
-                if(myDb.getWatchIdInfo() != null) {
-                    startApps();
-                } else {
-                    getWatchID();
-                }
+//                if(myDb.getWatchIdInfo() != null) {
+//                    startApps();
+//                } else {
+//                    getWatchID();
+//                }
+                checkPermission();
             }
 //        }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -353,6 +527,12 @@ public class MainActivity extends Activity implements
     public void onDetails(View view) {
         Intent intent = new Intent(this, WatchDetails.class);
         intent.putExtra("watch_id", myDb.getWatchIdInfo());
+        startActivity(intent);
+    }
+
+    public void onMsg(View view) {
+        Intent intent = new Intent(this, messages_activity.class);
+        intent.putExtra("start", 0);
         startActivity(intent);
     }
 
@@ -429,5 +609,36 @@ public class MainActivity extends Activity implements
     public boolean onSingleTapConfirmed(MotionEvent event) {
 //        Log.e(DEBUG_TAG, "onSingleTapConfirmed: " + event.toString());
         return true;
+    }
+
+
+    @Override
+    public void onResume() {
+        handler.postDelayed(runnable = new Runnable() {
+            @Override
+            public void run() {
+                if(myDb.getCountStep(getDateNow()) > 0) {
+                    dataSteps.setText(myDb.getSteps(getDateNow()) + " Steps");
+                } else {
+                    dataSteps.setText("0 Steps");
+                }
+                if(myDb.getCountCal(getDateNow()) > 0) {
+                    dataCal.setText(myDb.getCal(getDateNow()) + " Cals");
+                } else {
+                    dataCal.setText("0 Cals");
+                }
+                handler.postDelayed(runnable, delay);
+            }
+        }, delay);
+
+        super.onResume();
+
+    }
+
+
+    private String getDateNow() {
+        Date date = Calendar.getInstance().getTime();
+        SimpleDateFormat simpleDate = new SimpleDateFormat("dd-MM-yyyy");
+        return simpleDate.format(date);
     }
 }

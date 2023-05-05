@@ -1,5 +1,6 @@
 package com.tugasakhir.elderlycarewearable;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Color;
@@ -8,6 +9,9 @@ import android.os.Handler;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
+
+import androidx.constraintlayout.widget.ConstraintLayout;
 
 public class sosDialog {
     private Activity activity;
@@ -25,9 +29,8 @@ public class sosDialog {
         builder.setCancelable(false);
 
         dialog = builder.create();
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.parseColor("#f22b1d")));
         dialog.show();
-        dialog.getWindow().setGravity(Gravity.CENTER);
 
         Handler handler = new Handler();
         handler.postDelayed(new Runnable() {

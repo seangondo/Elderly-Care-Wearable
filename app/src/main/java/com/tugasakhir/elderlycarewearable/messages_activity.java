@@ -26,7 +26,6 @@ public class messages_activity extends Activity implements GestureDetector.OnGes
 
     DBHandler myDb;
 
-    private static final String DEBUG_TAG = "Gestures";
     private GestureDetectorCompat mDetector;
 
     @Override
@@ -69,8 +68,9 @@ public class messages_activity extends Activity implements GestureDetector.OnGes
     }
 
     public void backToHome(View view) {
-        Intent intent = new Intent(this, MainActivity.class);
-        startActivity(intent);
+//        Intent intent = null;
+//        intent = new Intent(this, MainActivity.class);
+//        startActivity(intent);
         finish();
     }
 

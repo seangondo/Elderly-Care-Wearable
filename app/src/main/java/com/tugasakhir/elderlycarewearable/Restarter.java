@@ -10,7 +10,7 @@ public class Restarter extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.i("Broadcast Listened", "Service tried to stop");
-        Toast.makeText(context, "Service restarted", Toast.LENGTH_SHORT).show();
+//        Toast.makeText(context, "Service restarted", Toast.LENGTH_SHORT).show();
         context.startForegroundService(new Intent(context, HeartRateService.class));
 //        context.startService(new Intent(context, HeartRateService.class));
 
