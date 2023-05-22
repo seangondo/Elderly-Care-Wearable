@@ -42,8 +42,12 @@ public class HeartRateService extends Service implements SensorEventListener {
     public static final String NOTIFICATION_CHANNEL_ID = "10001" ;
     private final static String default_notification_channel_id = "default" ;
 
+    String watch_id;
+
     public static String msg;
     public static String getTopic;
+
+    public DBHandler myDb;
 
     int heartRate = 0;
     int onBody = 0;
@@ -56,7 +60,6 @@ public class HeartRateService extends Service implements SensorEventListener {
     Handler handler = new Handler();
     Runnable runnable;
     int delay = 10000;
-    DBHandler myDb = new DBHandler(this);
     Timer timer;
     TimerTask timerTask;
     String TAG = "Timers";
@@ -64,8 +67,19 @@ public class HeartRateService extends Service implements SensorEventListener {
     @Override
     public void onCreate() {
         super.onCreate();
+        myDb = new DBHandler(getApplicationContext());
         startTimer();
         startMyOwnForeground();
+
+        watch_id = myDb.getWatchIdInfo();
+
+        try {
+            Class.forName("dalvik.system.CloseGuard")
+                    .getMethod("setEnabled", boolean.class)
+                    .invoke(null, true);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void startMyOwnForeground()
@@ -94,13 +108,13 @@ public class HeartRateService extends Service implements SensorEventListener {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        mqttServices();
         // SENSOR MANAGER
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mHeartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE);
         mSens1 = mSensorManager.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT);
         mSensorManager.registerListener(this, mHeartRateSensor, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSens1, SensorManager.SENSOR_DELAY_NORMAL);
-        mqttServices();
         return START_NOT_STICKY;
     }
 
@@ -119,18 +133,17 @@ public class HeartRateService extends Service implements SensorEventListener {
             }
         }
 
-        DBHandler myDb = new DBHandler(this);
         if(heartRate > 0 && onBody == 1 && client.isConnected()) {
             try {
-                client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/heart_rate", String.valueOf(heartRate).getBytes(), 0, false);
-                client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
+                client.publish(watch_id + "/wearable/sensor/heart_rate", String.valueOf(heartRate).getBytes(), 0, false);
+                client.publish(watch_id + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
             } catch (MqttException e) {
                 e.printStackTrace();
             }
         }
         if (onBody == 0 && client.isConnected()) {
             try {
-                client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
+                client.publish(watch_id + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
             } catch (MqttException e) {
                 e.printStackTrace();
             }
@@ -175,12 +188,11 @@ public class HeartRateService extends Service implements SensorEventListener {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
-                DBHandler myDb = new DBHandler(getApplicationContext());
                 getTopic = topic;
                 msg = new String(message.getPayload());
 //                Log.d("MQTT Topic", getTopic);
 //                Log.d("Mqtt Msg", msg);
-                if(topic.contains("messages")) {
+                if(topic.contains("alarm/message")) {
                     JSONObject obj = new JSONObject(msg);
                     Log.e("Messages", String.valueOf(obj));
                     myDb.insertMsgs(obj);
@@ -248,7 +260,7 @@ public class HeartRateService extends Service implements SensorEventListener {
                             String calValue = String.valueOf(0);
                             myDb.insertCal(calValue, getDateNow());
                             try {
-                                client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/calories", calValue.getBytes(), 0, false);
+                                client.publish(watch_id + "/wearable/sensor/calories", calValue.getBytes(), 0, false);
                             } catch (MqttException e) {
                                 e.printStackTrace();
                             }
@@ -258,7 +270,7 @@ public class HeartRateService extends Service implements SensorEventListener {
                             String stepValue = String.valueOf(0);
                             myDb.insertSteps(stepValue, getDateNow());
                             try {
-                                client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/steps", stepValue.getBytes(), 0, false);
+                                client.publish(watch_id + "/wearable/sensor/steps", stepValue.getBytes(), 0, false);
                             } catch (MqttException e) {
                                 e.printStackTrace();
                             }

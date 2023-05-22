@@ -1,16 +1,12 @@
 package com.tugasakhir.elderlycarewearable;
 
-import static android.Manifest.permission.BODY_SENSORS;
-import static android.Manifest.permission.INTERNET;
 import static android.content.pm.PackageManager.PERMISSION_DENIED;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -27,7 +23,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -36,7 +31,6 @@ import androidx.health.services.client.HealthServices;
 import androidx.health.services.client.HealthServicesClient;
 import androidx.health.services.client.PassiveListenerCallback;
 import androidx.health.services.client.PassiveMonitoringClient;
-import androidx.health.services.client.data.CumulativeDataPoint;
 import androidx.health.services.client.data.DataPointContainer;
 import androidx.health.services.client.data.DataType;
 import androidx.health.services.client.data.HealthEvent;
@@ -44,7 +38,6 @@ import androidx.health.services.client.data.IntervalDataPoint;
 import androidx.health.services.client.data.PassiveGoal;
 import androidx.health.services.client.data.PassiveListenerConfig;
 import androidx.health.services.client.data.PassiveMonitoringCapabilities;
-import androidx.health.services.client.data.SampleDataPoint;
 import androidx.health.services.client.data.UserActivityInfo;
 
 import com.google.gson.Gson;
@@ -59,18 +52,17 @@ import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
-import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -86,6 +78,7 @@ public class MainActivity extends Activity implements
     public static MqttAndroidClient client;
     public String serverUri;
 
+    String watch_id;
     String clientID, mqttUser, mqttPass;
 
     private String sensor = "heart rate";
@@ -129,7 +122,7 @@ public class MainActivity extends Activity implements
                 case R.id.btnSOS:
                     sosDialog sosDialog = new sosDialog(MainActivity.this);
                     try {
-                        client.publish(myDb.getWatchIdInfo() + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
+                        client.publish(watch_id + "/wearable/sos/message", (watch_id).getBytes(), 0, false);
                         sosDialog.startDialog();
                     } catch (MqttException e) {
                         e.printStackTrace();
@@ -208,8 +201,10 @@ public class MainActivity extends Activity implements
 
                 if(myDb.getWatchIdInfo() == null) {
                     getWatchID();
-                } else {
-                    startApps();
+                }
+                else {
+                    startPassiveData();
+//                    startApps();
                 }
             }
 
@@ -229,25 +224,69 @@ public class MainActivity extends Activity implements
         sos = (Button) findViewById(R.id.btnSOS);
         sos.setOnClickListener(myClickListener);
 
-        w_id.setText(myDb.getWatchIdInfo());
-        if(myDb.getCountStep(getDateNow()) > 0) {
-            dataSteps.setText(myDb.getSteps(getDateNow()) + " Steps");
-        } else {
-            dataSteps.setText("0 Steps");
+        watch_id = myDb.getWatchIdInfo();
+        w_id.setText(watch_id);
+
+        String steps = myDb.getSteps(getDateNow());
+        String cals = myDb.getCal(getDateNow());
+
+        dataSteps.setText(steps + " Steps");
+        dataCal.setText(cals + " Cals");
+
+        Log.e("Watch ID", watch_id);
+
+        try {
+            client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
+            client.publish(watch_id + "/wearable/sensor/calories", cals.getBytes(), 0, false);
+        } catch (MqttException e) {
+            e.printStackTrace();
         }
-        if(myDb.getCountCal(getDateNow()) > 0) {
-            dataCal.setText(myDb.getCal(getDateNow()) + " Cals");
-        } else {
-            dataCal.setText("0 Cals");
-        }
+
+//        if(myDb.getCountStep(getDateNow()) > 0) {
+//            steps = myDb.getSteps(getDateNow());
+//            dataSteps.setText(steps + " Steps");
+//            try {
+//                Log.e("Steps", String.valueOf(myDb.getCountStep(getDateNow())));
+//                client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
+//            } catch (MqttException e) {
+//                e.printStackTrace();
+//            }
+//        } else {
+//            dataSteps.setText("0 Steps");
+//            try {
+//                client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
+//            } catch (MqttException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//        if(myDb.getCountCal(getDateNow()) > 0) {
+//            cals = myDb.getCal(getDateNow());
+//            dataCal.setText(cals + " Cals");
+//            try {
+//                client.publish(watch_id + "/wearable/sensor/calories", steps.getBytes(), 0, false);
+//            } catch (MqttException e) {
+//                e.printStackTrace();
+//            }
+//        } else {
+//            dataCal.setText("0 Cals");
+//            try {
+//                client.publish(watch_id + "/wearable/sensor/calories", steps.getBytes(), 0, false);
+//            } catch (MqttException e) {
+//                e.printStackTrace();
+//            }
+//        }
 //        dataSteps.setText("0 Steps");
 //        dataCal.setText("0 Cals");
 
+    }
+
+    private void startPassiveData() {
         HealthServicesClient healthClient = HealthServices.getClient(this);
         PassiveMonitoringClient passiveClient = healthClient.getPassiveMonitoringClient();
 
         PassiveListenerConfig passiveListenerConfig = PassiveListenerConfig.builder()
                 .setDataTypes(Collections.singleton(DataType.STEPS_DAILY))
+                .setDataTypes(Collections.singleton(DataType.STEPS))
                 .setDataTypes(Collections.singleton(DataType.CALORIES_DAILY))
                 .build();
 
@@ -269,8 +308,9 @@ public class MainActivity extends Activity implements
                 Log.e("PassiveListenerCallback", "Receive Data");
                 String date = getDateNow();
                 List<IntervalDataPoint<Long>> stepsDaily = dataPointContainer.getData(DataType.STEPS_DAILY);
+                List<IntervalDataPoint<Long>> steps = dataPointContainer.getData(DataType.STEPS);
                 List<IntervalDataPoint<Double>> caloriesDaily = dataPointContainer.getData(DataType.CALORIES_DAILY);
-
+                Log.e("Steps", String.valueOf(steps.get(0).getValue()));
                 if(stepsDaily.size() > 0) {
                     String stepValue = String.valueOf(stepsDaily.get(0).getValue());
                     if(myDb.getCountStep(date) > 0) {
@@ -282,7 +322,7 @@ public class MainActivity extends Activity implements
                     }
 
                     try {
-                        client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/steps", stepValue.getBytes(), 0, false);
+                        client.publish(watch_id + "/wearable/sensor/steps", stepValue.getBytes(), 0, false);
                     } catch (MqttException e) {
                         e.printStackTrace();
                     }
@@ -300,7 +340,7 @@ public class MainActivity extends Activity implements
                     }
 
                     try {
-                        client.publish(myDb.getWatchIdInfo() + "/wearable/sensor/calories", calValue.getBytes(), 0, false);
+                        client.publish(watch_id + "/wearable/sensor/calories", calValue.getBytes(), 0, false);
                     } catch (MqttException e) {
                         e.printStackTrace();
                     }
@@ -404,7 +444,8 @@ public class MainActivity extends Activity implements
                     @Override
                     public void onSuccess(IMqttToken asyncActionToken) {
                         Log.e("MQTT Connect", "Success");
-                        subscribeToTopic(myDb.getWatchIdInfo());
+                        startApps();
+                        subscribeToTopic(watch_id);
                     }
 
                     @Override
@@ -596,7 +637,7 @@ public class MainActivity extends Activity implements
     public boolean onDoubleTapEvent(MotionEvent event) {
         sosDialog sosDialog = new sosDialog(MainActivity.this);
         try {
-            client.publish(myDb.getWatchIdInfo() + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
+            client.publish(watch_id + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
             sosDialog.startDialog();
         } catch (MqttException e) {
             e.printStackTrace();
@@ -617,24 +658,25 @@ public class MainActivity extends Activity implements
         handler.postDelayed(runnable = new Runnable() {
             @Override
             public void run() {
-                if(myDb.getCountStep(getDateNow()) > 0) {
-                    dataSteps.setText(myDb.getSteps(getDateNow()) + " Steps");
-                } else {
-                    dataSteps.setText("0 Steps");
-                }
-                if(myDb.getCountCal(getDateNow()) > 0) {
-                    dataCal.setText(myDb.getCal(getDateNow()) + " Cals");
-                } else {
-                    dataCal.setText("0 Cals");
-                }
+                setData();
                 handler.postDelayed(runnable, delay);
             }
         }, delay);
-
         super.onResume();
-
     }
 
+    private void setData() {
+        if(myDb.getCountStep(getDateNow()) > 0) {
+            dataSteps.setText(myDb.getSteps(getDateNow()) + " Steps");
+        } else {
+            dataSteps.setText("0 Steps");
+        }
+        if(myDb.getCountCal(getDateNow()) > 0) {
+            dataCal.setText(myDb.getCal(getDateNow()) + " Cals");
+        } else {
+            dataCal.setText("0 Cals");
+        }
+    }
 
     private String getDateNow() {
         Date date = Calendar.getInstance().getTime();

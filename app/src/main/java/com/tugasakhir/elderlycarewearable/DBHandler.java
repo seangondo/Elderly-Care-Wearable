@@ -1,10 +1,12 @@
 package com.tugasakhir.elderlycarewearable;
 
+import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.StrictMode;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -12,7 +14,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class DBHandler extends SQLiteOpenHelper {
-
     static int DB_ver = 1;
     static String DB_name = "elderlyWatch_db";
 
@@ -24,7 +25,6 @@ public class DBHandler extends SQLiteOpenHelper {
     static String MSG_date = "date";
     static String MSG_time = "time";
     static String MSG_messages = "messages";
-
 
     static String CAL_TABLE = "tb_calories";
     static String CAL_id = "id";
@@ -43,6 +43,7 @@ public class DBHandler extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
+
         String tbUser = "CREATE TABLE " + WATCH_TABLE + " ("
                 + WATCH_id + " VARCHAR(50)); ";
         db.execSQL(tbUser);
@@ -119,8 +120,9 @@ public class DBHandler extends SQLiteOpenHelper {
     public int getDataCount() {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery("SELECT * FROM " + MSG_TABLE, null);
-
-        return c.getCount();
+        int count = c.getCount();
+        c.close();
+        return count;
     }
 
     public JSONObject getCurrentMsg (int number) throws JSONException{
@@ -139,6 +141,7 @@ public class DBHandler extends SQLiteOpenHelper {
                 arrData.put(data);
             } while (c.moveToNext());
         }
+        c.close();
         Log.e("Data List", String.valueOf(arrData));
         dataSend = arrData.getJSONObject(number);
         return dataSend;
@@ -169,20 +172,22 @@ public class DBHandler extends SQLiteOpenHelper {
     public int getCountStep(String date) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery("SELECT * FROM " + STEPS_TABLE + " WHERE date='" + date + "'", null);
-
-        return c.getCount();
+        int count = c.getCount();
+        c.close();
+        return count;
     }
 
     public String getSteps(String date) {
         SQLiteDatabase db = this.getReadableDatabase();
         String steps = "0";
-        Cursor c = db.rawQuery("SELECT * FROM " + STEPS_TABLE + " WHERE date='" + date + "'", null);
+        @SuppressLint("Recycle") Cursor c = db.rawQuery("SELECT * FROM " + STEPS_TABLE + " WHERE date='" + date + "'", null);
 
         if(c.moveToFirst()) {
             do {
                 steps = c.getString(1);
             } while (c.moveToNext());
         }
+        c.close();
         return steps;
     }
 
@@ -211,20 +216,23 @@ public class DBHandler extends SQLiteOpenHelper {
 
     public int getCountCal(String date) {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
-        return c.getCount();
+        @SuppressLint("Recycle") Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
+        int count = c.getCount();
+        c.close();
+        return count;
     }
 
     public String getCal(String date) {
         SQLiteDatabase db = this.getReadableDatabase();
         String steps = "0";
-        Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
+        @SuppressLint("Recycle") Cursor c = db.rawQuery("SELECT * FROM " + CAL_TABLE + " WHERE date='" + date + "'", null);
 
         if(c.moveToFirst()) {
             do {
                 steps = c.getString(1);
             } while (c.moveToNext());
         }
+        c.close();
         return steps;
     }
 
