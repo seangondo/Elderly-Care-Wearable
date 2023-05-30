@@ -113,7 +113,7 @@ public class HeartRateService extends Service implements SensorEventListener {
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mHeartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE);
         mSens1 = mSensorManager.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT);
-        mSensorManager.registerListener(this, mHeartRateSensor, SensorManager.SENSOR_DELAY_NORMAL);
+//        mSensorManager.registerListener(this, mHeartRateSensor, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSens1, SensorManager.SENSOR_DELAY_NORMAL);
         return START_NOT_STICKY;
     }
@@ -136,12 +136,18 @@ public class HeartRateService extends Service implements SensorEventListener {
         if(heartRate > 0 && onBody == 1 && client.isConnected()) {
             try {
                 client.publish(watch_id + "/wearable/sensor/heart_rate", String.valueOf(heartRate).getBytes(), 0, false);
+            } catch (MqttException e) {
+                e.printStackTrace();
+            }
+        }
+        if (onBody == 1 && client.isConnected()) {
+            try {
                 client.publish(watch_id + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
             } catch (MqttException e) {
                 e.printStackTrace();
             }
         }
-        if (onBody == 0 && client.isConnected()) {
+        else if (onBody == 0 && client.isConnected()) {
             try {
                 client.publish(watch_id + "/wearable/sensor/onbody", String.valueOf(onBody).getBytes(), 0, false);
             } catch (MqttException e) {

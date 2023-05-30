@@ -38,7 +38,10 @@ import androidx.health.services.client.data.IntervalDataPoint;
 import androidx.health.services.client.data.PassiveGoal;
 import androidx.health.services.client.data.PassiveListenerConfig;
 import androidx.health.services.client.data.PassiveMonitoringCapabilities;
+import androidx.health.services.client.data.SampleDataPoint;
 import androidx.health.services.client.data.UserActivityInfo;
+import androidx.health.services.client.proto.DataProto;
+import androidx.health.services.client.proto.ResponsesProto;
 
 import com.google.gson.Gson;
 import com.google.common.util.concurrent.FutureCallback;
@@ -47,6 +50,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.tugasakhir.elderlycarewearable.databinding.ActivityMainBinding;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
+//import info.mqtt.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -62,6 +66,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -164,6 +169,8 @@ public class MainActivity extends Activity implements
         w_id = (TextView) findViewById(R.id.watchID);
         databpm = (TextView) findViewById(R.id.hrDataTV);
 
+        watch_id = myDb.getWatchIdInfo();
+
         if (!hasPermission(this, PERMISSIONS)) {
             ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_ALL);
         } else {
@@ -199,7 +206,8 @@ public class MainActivity extends Activity implements
                 }
                 Log.e("Sensor Supported", sensor);
 
-                if(myDb.getWatchIdInfo() == null) {
+                if(watch_id == null) {
+                    Log.e("MASOK", "New");
                     getWatchID();
                 }
                 else {
@@ -224,7 +232,9 @@ public class MainActivity extends Activity implements
         sos = (Button) findViewById(R.id.btnSOS);
         sos.setOnClickListener(myClickListener);
 
-        watch_id = myDb.getWatchIdInfo();
+//        watch_id = myDb.getWatchIdInfo();
+//        w_id.setText(watch_id);
+
         w_id.setText(watch_id);
 
         String steps = myDb.getSteps(getDateNow());
@@ -234,6 +244,8 @@ public class MainActivity extends Activity implements
         dataCal.setText(cals + " Cals");
 
         Log.e("Watch ID", watch_id);
+        Log.e("Watch Steps", steps);
+        Log.e("Watch Cals", cals);
 
         try {
             client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
@@ -281,14 +293,13 @@ public class MainActivity extends Activity implements
     }
 
     private void startPassiveData() {
-        HealthServicesClient healthClient = HealthServices.getClient(this);
+        HealthServicesClient healthClient = HealthServices.getClient(getApplicationContext());
         PassiveMonitoringClient passiveClient = healthClient.getPassiveMonitoringClient();
 
         PassiveListenerConfig passiveListenerConfig = PassiveListenerConfig.builder()
-                .setDataTypes(Collections.singleton(DataType.STEPS_DAILY))
-                .setDataTypes(Collections.singleton(DataType.STEPS))
-                .setDataTypes(Collections.singleton(DataType.CALORIES_DAILY))
+                .setDataTypes(Set.of(DataType.CALORIES_DAILY, DataType.STEPS_DAILY))
                 .build();
+
 
         PassiveListenerCallback passiveListenerCallback = new PassiveListenerCallback() {
             @Override
@@ -307,10 +318,11 @@ public class MainActivity extends Activity implements
             public void onNewDataPointsReceived(@NonNull DataPointContainer dataPointContainer) {
                 Log.e("PassiveListenerCallback", "Receive Data");
                 String date = getDateNow();
-                List<IntervalDataPoint<Long>> stepsDaily = dataPointContainer.getData(DataType.STEPS_DAILY);
-                List<IntervalDataPoint<Long>> steps = dataPointContainer.getData(DataType.STEPS);
                 List<IntervalDataPoint<Double>> caloriesDaily = dataPointContainer.getData(DataType.CALORIES_DAILY);
-                Log.e("Steps", String.valueOf(steps.get(0).getValue()));
+                List<IntervalDataPoint<Long>> stepsDaily = dataPointContainer.getData(DataType.STEPS_DAILY);
+//                for(int i = 0; i < stepsDaily.size(); i++) {
+//                    Log.e("Steps", String.valueOf(stepsDaily.get(i).getValue()));
+//                }
                 if(stepsDaily.size() > 0) {
                     String stepValue = String.valueOf(stepsDaily.get(0).getValue());
                     if(myDb.getCountStep(date) > 0) {
@@ -508,7 +520,9 @@ public class MainActivity extends Activity implements
                         getWatchID();
                     } else {
                         myDb.insertWatchID(obj.getString("watch_id"));
-                        startApps();
+                        watch_id = obj.getString("watch_id");
+                        startPassiveData();
+//                        startApps();
                     }
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -544,7 +558,7 @@ public class MainActivity extends Activity implements
                 }
             }
             if (permissionGranted) {
-//                if(myDb.getWatchIdInfo() != null) {
+//                if(watch_id != null) {
 //                    startApps();
 //                } else {
 //                    getWatchID();
@@ -567,7 +581,7 @@ public class MainActivity extends Activity implements
 
     public void onDetails(View view) {
         Intent intent = new Intent(this, WatchDetails.class);
-        intent.putExtra("watch_id", myDb.getWatchIdInfo());
+        intent.putExtra("watch_id", watch_id);
         startActivity(intent);
     }
 
@@ -637,7 +651,7 @@ public class MainActivity extends Activity implements
     public boolean onDoubleTapEvent(MotionEvent event) {
         sosDialog sosDialog = new sosDialog(MainActivity.this);
         try {
-            client.publish(watch_id + "/wearable/sos/message", (myDb.getWatchIdInfo()).getBytes(), 0, false);
+            client.publish(watch_id + "/wearable/sos/message", (watch_id).getBytes(), 0, false);
             sosDialog.startDialog();
         } catch (MqttException e) {
             e.printStackTrace();

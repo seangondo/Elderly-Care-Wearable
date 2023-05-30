@@ -99,6 +99,7 @@ public class DBHandler extends SQLiteOpenHelper {
 
             } while (c.moveToNext());
         }
+        c.close();
         return watchId;
     }
 
