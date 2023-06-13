@@ -6,11 +6,14 @@ import android.content.Intent;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.annotation.RequiresApi;
+
 public class Restarter extends BroadcastReceiver {
+    @RequiresApi(api = 33)
     @Override
     public void onReceive(Context context, Intent intent) {
         Log.i("Broadcast Listened", "Service tried to stop");
-//        Toast.makeText(context, "Service restarted", Toast.LENGTH_SHORT).show();
+
         context.startForegroundService(new Intent(context, HeartRateService.class));
 //        context.startService(new Intent(context, HeartRateService.class));
 

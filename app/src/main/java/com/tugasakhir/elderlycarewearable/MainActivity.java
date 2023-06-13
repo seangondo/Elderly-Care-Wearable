@@ -254,42 +254,6 @@ public class MainActivity extends Activity implements
             e.printStackTrace();
         }
 
-//        if(myDb.getCountStep(getDateNow()) > 0) {
-//            steps = myDb.getSteps(getDateNow());
-//            dataSteps.setText(steps + " Steps");
-//            try {
-//                Log.e("Steps", String.valueOf(myDb.getCountStep(getDateNow())));
-//                client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
-//            } catch (MqttException e) {
-//                e.printStackTrace();
-//            }
-//        } else {
-//            dataSteps.setText("0 Steps");
-//            try {
-//                client.publish(watch_id + "/wearable/sensor/steps", steps.getBytes(), 0, false);
-//            } catch (MqttException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        if(myDb.getCountCal(getDateNow()) > 0) {
-//            cals = myDb.getCal(getDateNow());
-//            dataCal.setText(cals + " Cals");
-//            try {
-//                client.publish(watch_id + "/wearable/sensor/calories", steps.getBytes(), 0, false);
-//            } catch (MqttException e) {
-//                e.printStackTrace();
-//            }
-//        } else {
-//            dataCal.setText("0 Cals");
-//            try {
-//                client.publish(watch_id + "/wearable/sensor/calories", steps.getBytes(), 0, false);
-//            } catch (MqttException e) {
-//                e.printStackTrace();
-//            }
-//        }
-//        dataSteps.setText("0 Steps");
-//        dataCal.setText("0 Cals");
-
     }
 
     private void startPassiveData() {
@@ -320,9 +284,7 @@ public class MainActivity extends Activity implements
                 String date = getDateNow();
                 List<IntervalDataPoint<Double>> caloriesDaily = dataPointContainer.getData(DataType.CALORIES_DAILY);
                 List<IntervalDataPoint<Long>> stepsDaily = dataPointContainer.getData(DataType.STEPS_DAILY);
-//                for(int i = 0; i < stepsDaily.size(); i++) {
-//                    Log.e("Steps", String.valueOf(stepsDaily.get(i).getValue()));
-//                }
+
                 if(stepsDaily.size() > 0) {
                     String stepValue = String.valueOf(stepsDaily.get(0).getValue());
                     if(myDb.getCountStep(date) > 0) {
@@ -391,7 +353,7 @@ public class MainActivity extends Activity implements
         startMqtt();
         hrService = new HeartRateService();
         serviceIntent = new Intent(this, hrService.getClass());
-        if(!isMyServiceRunning(hrService.getClass())) {
+        if(!isServiceRunning(this, hrService.getClass())) {
             startForegroundService(new Intent(MainActivity.this, HeartRateService.class));
         }
 
@@ -418,16 +380,18 @@ public class MainActivity extends Activity implements
         registerReceiver(mHeartRateReceiver, filter);
     }
 
-    private boolean isMyServiceRunning(Class<?> serviceClass) {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
-            if (serviceClass.getName().equals(service.service.getClassName())) {
-                Log.i ("Service status", "Running");
-                return true;
+
+    public static boolean isServiceRunning(Context context, Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (manager != null) {
+            // Iterate through the running services and check if the service class is present
+            for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+                if (serviceClass.getName().equals(service.service.getClassName())) {
+                    return true; // Service is running
+                }
             }
         }
-        Log.i ("Service status", "Not running");
-        return false;
+        return false; // Service is not running
     }
 
     @Override
@@ -529,13 +493,11 @@ public class MainActivity extends Activity implements
                 }
 
             }
-
             @Override
             public void onFailure(Call<Object> call, Throwable t) {
                 Log.e("Wearable Retrofit", String.valueOf(t));
             }
         });
-
     }
 
     @Override
@@ -586,8 +548,8 @@ public class MainActivity extends Activity implements
     }
 
     public void onMsg(View view) {
-        Intent intent = new Intent(this, messages_activity.class);
-        intent.putExtra("start", 0);
+        Intent intent = new Intent(this, WatchDetails.class);
+        intent.putExtra("watch_id", watch_id);
         startActivity(intent);
     }
 

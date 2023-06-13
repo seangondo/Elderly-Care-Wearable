@@ -37,6 +37,7 @@ import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
+@RequiresApi(api = 33)
 public class HeartRateService extends Service implements SensorEventListener {
 
     public static final String NOTIFICATION_CHANNEL_ID = "10001" ;
@@ -73,13 +74,6 @@ public class HeartRateService extends Service implements SensorEventListener {
 
         watch_id = myDb.getWatchIdInfo();
 
-        try {
-            Class.forName("dalvik.system.CloseGuard")
-                    .getMethod("setEnabled", boolean.class)
-                    .invoke(null, true);
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void startMyOwnForeground()
@@ -113,7 +107,6 @@ public class HeartRateService extends Service implements SensorEventListener {
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mHeartRateSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE);
         mSens1 = mSensorManager.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT);
-//        mSensorManager.registerListener(this, mHeartRateSensor, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSens1, SensorManager.SENSOR_DELAY_NORMAL);
         return START_NOT_STICKY;
     }
@@ -194,16 +187,16 @@ public class HeartRateService extends Service implements SensorEventListener {
 
             @Override
             public void messageArrived(String topic, MqttMessage message) throws Exception {
-                getTopic = topic;
-                msg = new String(message.getPayload());
-//                Log.d("MQTT Topic", getTopic);
-//                Log.d("Mqtt Msg", msg);
-                if(topic.contains("alarm/message")) {
-                    JSONObject obj = new JSONObject(msg);
-                    Log.e("Messages", String.valueOf(obj));
-                    myDb.insertMsgs(obj);
-                    createNotification(obj.getString("message"));
-                }
+//                getTopic = topic;
+//                msg = new String(message.getPayload());
+//                  Log.d("MQTT Topic", getTopic);
+//                  Log.d("Mqtt Msg", msg);
+//                if(topic.contains("alarm/message")) {
+//                    JSONObject obj = new JSONObject(msg);
+//                    Log.e("Messages", String.valueOf(obj));
+//                    myDb.insertMsgs(obj);
+//                    createNotification(obj.getString("message"));
+//                }
             }
 
             @Override
